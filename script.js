@@ -7,6 +7,10 @@
    visitor's email app instead, so it still works.
    =================================================== */
 const CONTACT_ENDPOINT = "/api/contact";
+/* GitHub Pages: paste your free Web3Forms access key here (web3forms.com).
+   This key is meant to be public: it can only send messages TO you. */
+const WEB3FORMS_KEY = "c7f7e9a8-1111-4fab-a465-114ed7bf39e1";
+const USE_WEB3FORMS = !WEB3FORMS_KEY.startsWith("PASTE");
 const MY_EMAIL = "soulaima.sellemi@ensi-uma.tn";
 
 /* ---------- Theme (dark / light) ---------- */
@@ -106,14 +110,22 @@ if (form) form.addEventListener("submit", async e => {
   statusEl.textContent = t("sending");
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(CONTACT_ENDPOINT, {
+    const payload = Object.fromEntries(data);
+    if (USE_WEB3FORMS) {
+      payload.access_key = WEB3FORMS_KEY;
+      payload.subject = "Portfolio message from " + payload.name;
+      payload.from_name = "Portfolio";
+      payload.replyto = payload.email;
+      payload.botcheck = !!payload.botcheck;
+    }
+    const res = await fetch(USE_WEB3FORMS ? "https://api.web3forms.com/submit" : CONTACT_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(data)),
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (res.status === 404 || res.status === 405) { openMailApp(data); return; } // function not deployed yet
     const json = await res.json().catch(() => ({}));
-    if (res.ok && json.ok) { statusEl.textContent = t("sent"); form.reset(); }
+    if (res.ok && (json.ok || json.success)) { statusEl.textContent = t("sent"); form.reset(); }
     else { statusEl.textContent = t("failed"); }
   } catch (err) {
     openMailApp(data); // offline or no server (e.g. opened as a local file)
